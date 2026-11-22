@@ -48,11 +48,12 @@ export function hiddenSetter(node: HTMLElement): (hidden: boolean) => void {
   };
 }
 
-export function disabledSetter(node: HTMLButtonElement): (disabled: boolean) => void {
-  let last = node.disabled;
-  return (disabled) => {
-    if (disabled === last) return;
-    last = disabled;
-    node.disabled = disabled;
+export function attrSetter(node: HTMLElement, name: string): (value: string | null) => void {
+  let last = node.getAttribute(name);
+  return (value) => {
+    if (value === last) return;
+    last = value;
+    if (value === null) node.removeAttribute(name);
+    else node.setAttribute(name, value);
   };
 }

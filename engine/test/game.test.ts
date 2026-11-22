@@ -429,3 +429,75 @@ describe('beam targets', () => {
     expect('target' in game.state.structures[0]).toBe(false);
   });
 });
+
+describe('elliptic orbits', () => {
+  const wave = [{ reward: 10, spawns: [{ at: 0, kind: 'iron', mass: 30 }] }];
+  const orbits = { periapsis: [200, 200] as [number, number], apoapsis: [600, 600] as [number, number] };
+
+  it('put a new body on the ellipse it asked for, heading in', () => {
+    const game = newGame();
+    const { vr, vt } = game.orbitVelocity(420, 200, 600, 1);
+    expect(vr).toBeLessThan(0);
+    expect(vt).toBeGreaterThan(0);
+    // Same angular momentum and energy as the ellipse with those close and far points.
+    const h = 420 * vt;
+    const energy = (vr * vr + vt * vt) / 2 - game.mu / 420;
+    expect(h).toBeCloseTo(Math.sqrt((2 * game.mu * 200 * 600) / 800), 6);
+    expect(energy).toBeCloseTo(-game.mu / 800, 6);
+    expect(game.orbitVelocity(420, 200, 600, -1).vt).toBeCloseTo(-vt, 9);
+  });
+
+  it('swing a body in past the planet, back out beyond where it came from, and in again', () => {
+    const game = newGame({ waveDelay: 0, world: { ...baseWorld, inflow: 0, orbits } }, wave);
+    const radii: number[] = [];
+    for (let i = 0; i < 20 * 200; i++) {
+      game.tick();
+      const body = game.state.asteroids[0];
+      if (body) radii.push(body.r);
+    }
+    const closest = Math.min(...radii);
+    const furthest = Math.max(...radii);
+    expect(closest).toBeGreaterThan(190);
+    expect(closest).toBeLessThan(205);
+    expect(furthest).toBeGreaterThan(590);
+    expect(furthest).toBeLessThan(605);
+    // Came back down after the far point.
+    expect(radii[radii.length - 1]).toBeLessThan(furthest - 50);
+  });
+
+  it('shrink with inflow and fall in the end, instead of orbiting for ever', () => {
+    const game = newGame({ waveDelay: 0, world: { ...baseWorld, inflow: 2, orbits } }, wave);
+    const events = run(game, 20 * 600);
+    expect(ofType(events, 'impact')).toHaveLength(1);
+  });
+
+  it('brake a body that was flung onto an open path, so it comes back', () => {
+    const game = newGame({ world: { ...baseWorld, inflow: 2 } });
+    const body = place(game, { kind: 'iron', mass: 30, r: 300, vr: 0, vt: 60 });
+    expect((body.vt ?? 0) ** 2 / 2 - game.mu / 300).toBeGreaterThan(0);
+    run(game, 20 * 30);
+    expect(Math.hypot(body.vr ?? 0, body.vt ?? 0)).toBeLessThan(60);
+  });
+
+  it('keep spin when knocked back, so a lifted body swings out from there', () => {
+    const game = newGame();
+    const iron = place(game, { kind: 'iron', mass: 10, r: 200, vr: 0, vt: 30 });
+    game.state.projectiles.push({ target: iron.id, hit: 1, damage: 'kinetic', knockback: 20, ticksLeft: 1 });
+    game.tick();
+    // Lifted 20 units, angular momentum kept through the push.
+    expect(iron.r).toBeGreaterThan(215);
+    expect(iron.r * (iron.vt ?? 0)).toBeCloseTo(200 * 30, -1);
+  });
+
+  it('send fragments on along the parent orbit', () => {
+    const game = newGame();
+    const rock = place(game, { kind: 'rock', mass: 30, r: 300, theta: 0.2, vr: -20, vt: 40 });
+    rock.hp = 0;
+    game.tick();
+    expect(game.state.asteroids.length).toBeGreaterThan(1);
+    for (const fragment of game.state.asteroids) {
+      expect(fragment.vt).toBeGreaterThan(35);
+      expect(fragment.vt).toBeLessThan(45);
+    }
+  });
+});

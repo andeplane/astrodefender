@@ -5,6 +5,7 @@ import {
   type Command,
   type CommandResult,
   type GameEvent,
+  type GameState,
   type LevelDef,
 } from '@engine';
 import type { Session, Speed, UiState, UiStore } from '../../src/contract';
@@ -41,6 +42,11 @@ export class FakeSession implements Session {
     this.restarts++;
     this.seed = seed ?? this.seed + 1;
     this.game = new Game(this.content, this.level, this.seed);
+  }
+
+  load(state: GameState, seed: number): void {
+    this.game = Game.restore(this.content, this.level, state);
+    this.seed = seed;
   }
 }
 

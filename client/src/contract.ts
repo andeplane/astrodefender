@@ -1,4 +1,15 @@
-import type { Command, CommandResult, Content, Game, GameEvent, LevelDef, Site, Vec, WorldDef } from '@engine';
+import type {
+  Command,
+  CommandResult,
+  Content,
+  Game,
+  GameEvent,
+  GameState,
+  LevelDef,
+  Site,
+  Vec,
+  WorldDef,
+} from '@engine';
 
 /**
  * The seams between the client's parts. The session runs the engine, the renderer draws it on a
@@ -24,6 +35,11 @@ export interface Session {
   send(command: Command): CommandResult;
   /** Starts the level again, with a new seed unless one is given. */
   restart(seed?: number): void;
+  /**
+   * Continues a saved game. `seed` is what the saved game was started with, so a later `restart`
+   * derives the same next seed. Throws if the state cannot be restored; the current game is then kept.
+   */
+  load(state: GameState, seed: number): void;
 }
 
 /** What the player is pointing at. Shared by input, renderer and HUD. */

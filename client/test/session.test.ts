@@ -108,6 +108,45 @@ describe('session', () => {
   });
 });
 
+describe('session load', () => {
+  it('continues a saved state with its seed, leaving the save untouched', () => {
+    const source = make(5);
+    source.send({ type: 'build', structure: 'laser', site: { kind: 'surface', slot: 0 } });
+    source.advance(tickMs * 3);
+    const saved = structuredClone(source.game.state);
+
+    const session = make(1);
+    session.advance(tickMs * 0.5);
+    session.load(saved, 5);
+    expect(session.seed).toBe(5);
+    expect(session.alpha).toBe(0);
+    expect(session.game.state).toEqual(source.game.state);
+    expect(session.game.state).not.toBe(saved);
+
+    session.advance(tickMs);
+    source.advance(tickMs);
+    expect(session.game.state).toEqual(source.game.state);
+    expect(saved.tick).toBe(3);
+    session.restart();
+    expect(session.seed).toBe(6);
+  });
+
+  it('keeps the current game when the state cannot be restored', () => {
+    const session = make(2);
+    const game = session.game;
+    const broken = structuredClone(game.state);
+    // A state the deep copy cannot read stands in for any save the engine rejects.
+    Object.defineProperty(broken, 'tick', {
+      get() {
+        throw new Error('unreadable');
+      },
+    });
+    expect(() => session.load(broken, 9)).toThrow();
+    expect(session.game).toBe(game);
+    expect(session.seed).toBe(2);
+  });
+});
+
 describe('session integration', () => {
   it('plays the first level: builds, waits out the build phase and sees an asteroid', () => {
     const session = make(3);

@@ -105,6 +105,22 @@ export class Game {
     return world.kepler * Math.pow(world.planetRadius / r, 1.5);
   }
 
+  /** Gravity strength: the planet pulls with mu / r², which turns a circular orbit at `orbitalSpeed`. */
+  get mu(): number {
+    const world = this.level.world;
+    return world.kepler * world.kepler * Math.pow(world.planetRadius, 3);
+  }
+
+  /** Velocity at radius r on the orbit with closest point `near` and furthest point `far`, heading in. */
+  orbitVelocity(r: number, near: number, far: number, direction: 1 | -1): { vr: number; vt: number } {
+    const mu = this.mu;
+    // Angular momentum and vis-viva of that ellipse; whatever speed is not sideways is inwards.
+    const h = Math.sqrt((2 * mu * near * far) / (near + far));
+    const speedSq = mu * (2 / r - 2 / (near + far));
+    const vt = h / r;
+    return { vr: -Math.sqrt(Math.max(0, speedSq - vt * vt)), vt: direction * vt };
+  }
+
   density(r: number): number {
     const world = this.level.world;
     return Math.exp(-(r - world.planetRadius) / world.atmosphereHeight);
@@ -368,8 +384,16 @@ export class Game {
     events.push({ type: 'waveStarted', wave: wave.index, bonus });
   }
 
-  private spawn(kind: string, mass: number, r: number, theta: number, direction: 1 | -1): Asteroid {
+  private spawn(
+    kind: string,
+    mass: number,
+    r: number,
+    theta: number,
+    direction: 1 | -1,
+    velocity?: { vr: number; vt: number },
+  ): Asteroid {
     const asteroid: Asteroid = {
+      ...velocity,
       id: this.state.nextId++,
       kind,
       mass,
@@ -403,7 +427,10 @@ export class Game {
         for (let i = 0; i < fragments; i++) {
           const r = Math.max(world.planetRadius + 1, asteroid.r + (this.random() - 0.5) * 10);
           const theta = asteroid.theta + (this.random() - 0.5) * 0.3;
-          this.spawn(def.fragments.kind ?? asteroid.kind, each, r, theta, asteroid.direction);
+          // Fragments carry on along the parent's orbit, a little faster or slower each.
+          const velocity =
+            asteroid.vt === undefined ? undefined : { vr: asteroid.vr ?? 0, vt: asteroid.vt * (0.9 + this.random() * 0.2) };
+          this.spawn(def.fragments.kind ?? asteroid.kind, each, r, theta, asteroid.direction, velocity);
         }
       }
     }
@@ -533,7 +560,11 @@ export class Game {
       if (target && target.hp > 0) {
         target.pending -= projectile.hit * this.content.asteroids[target.kind].resist[projectile.damage];
         this.hurt(target, projectile.hit, projectile.damage);
-        target.r = Math.min(world.spawnRadius, target.r + (projectile.knockback * world.refMass) / target.mass);
+        const pushed = target.r + (projectile.knockback * world.refMass) / target.mass;
+        const r = Math.max(target.r, Math.min(world.spawnRadius, pushed));
+        // Lifted higher with the same spin, so it swings out from there rather than flying off.
+        if (target.vt !== undefined) target.vt *= target.r / r;
+        target.r = r;
       }
       return false;
     });
@@ -586,8 +617,7 @@ export class Game {
     asteroid.mass -= lost;
 
     const drag = def.dragCoef * density * Math.cbrt(world.refMass / asteroid.mass);
-    asteroid.r -= (world.inflow + drag) * dt;
-    asteroid.theta += asteroid.direction * this.orbitalSpeed(Math.max(asteroid.r, world.planetRadius)) * dt;
+    this.fly(asteroid, world.inflow, drag, dt);
 
     if (asteroid.r <= world.planetRadius) {
       const population = def.impact * asteroid.mass;
@@ -597,6 +627,47 @@ export class Game {
       return false;
     }
     return true;
+  }
+
+  /**
+   * One leapfrog step of a body under gravity and two brakes against its motion. `inflow` shrinks
+   * the orbit's size by that many units/s whatever its shape, so an ellipse keeps swinging out and
+   * back while it decays. `drag` is the air: sized so a body on a circle sinks at that rate, it bites
+   * hardest at the close point and rounds the orbit off until the body falls.
+   */
+  private fly(asteroid: Asteroid, inflow: number, drag: number, dt: number): void {
+    const mu = this.mu;
+    const r0 = asteroid.r;
+    const cos = Math.cos(asteroid.theta);
+    const sin = Math.sin(asteroid.theta);
+    const vr = asteroid.vr ?? -(inflow + drag);
+    const vt = asteroid.vt ?? asteroid.direction * this.orbitalSpeed(r0) * r0;
+    let x = r0 * cos;
+    let y = r0 * sin;
+    let vx = vr * cos - vt * sin;
+    let vy = vr * sin + vt * cos;
+    const kick = (half: number): void => {
+      const r = Math.hypot(x, y);
+      const speedSq = vx * vx + vy * vy;
+      // From da/dt = -2a²·v·brake/mu, with a from vis-viva. An unbound body is braked as if on a
+      // circle, so nothing escapes for good.
+      const inverseA = 2 / r - speedSq / mu;
+      const shrink = inverseA > 0 ? (inflow * mu * inverseA * inverseA) / (2 * speedSq) : inflow / (2 * r);
+      const brake = shrink + drag / (2 * r);
+      const pull = -mu / (r * r * r);
+      vx += (pull * x - brake * vx) * half;
+      vy += (pull * y - brake * vy) * half;
+    };
+    kick(dt / 2);
+    x += vx * dt;
+    y += vy * dt;
+    kick(dt / 2);
+    const r = Math.hypot(x, y);
+    // The turn since the last step, so theta keeps counting past a full circle.
+    asteroid.theta += Math.atan2(r0 * (cos * y - sin * x), r0 * (cos * x + sin * y));
+    asteroid.r = r;
+    asteroid.vr = (x * vx + y * vy) / r;
+    asteroid.vt = (x * vy - y * vx) / r;
   }
 
   private advanceWave(events: GameEvent[]): void {
@@ -610,13 +681,17 @@ export class Game {
     }
     while (wave.queue.length > 0 && wave.queue[0].atTick <= wave.elapsed) {
       const next = wave.queue.shift() as QueuedSpawn;
-      const spawned = this.spawn(
-        next.kind,
-        next.mass,
-        this.level.world.spawnRadius,
-        this.random() * TAU,
-        next.direction,
-      );
+      const world = this.level.world;
+      const theta = this.random() * TAU;
+      let velocity: { vr: number; vt: number } | undefined;
+      if (world.orbits) {
+        const [nearMin, nearMax] = world.orbits.periapsis;
+        const [farMin, farMax] = world.orbits.apoapsis;
+        const near = Math.min(world.spawnRadius, nearMin + this.random() * (nearMax - nearMin));
+        const far = Math.max(world.spawnRadius, farMin + this.random() * (farMax - farMin));
+        velocity = this.orbitVelocity(world.spawnRadius, near, far, next.direction);
+      }
+      const spawned = this.spawn(next.kind, next.mass, world.spawnRadius, theta, next.direction, velocity);
       events.push({ type: 'spawned', id: spawned.id, kind: spawned.kind });
     }
     wave.elapsed++;
