@@ -70,3 +70,29 @@ export const palette = {
 export function swatch(structure: string): Swatch {
   return structureSwatches[structure] ?? fallback;
 }
+
+/** Rim colour of a research card's button, by its line in the tech tree. */
+export const techLineColors: Record<string, string> = {
+  energy: '#f2c94c',
+  weapons: '#ff5d5d',
+  economy: '#6fcf97',
+  sight: '#56ccf2',
+  orbit: '#7aa2ff',
+  compute: '#c08bff',
+};
+
+export function techLineColor(line: string): string {
+  return techLineColors[line] ?? fallback.color;
+}
+
+/** The command card's own buttons, the ones that are not a structure or a card. */
+export const commandSwatches = {
+  back: { color: '#9aa4b2', glyph: '✕' },
+  research: { color: '#56ccf2', glyph: '⚗' },
+  callWave: { color: '#ff9f43', glyph: '☄' },
+  sell: { color: '#f2c94c', glyph: '$' },
+  turnOff: { color: '#ff5d5d', glyph: 'Off' },
+  turnOn: { color: '#6fcf97', glyph: 'On' },
+  idle: { color: '#8a94a6', glyph: '◎' },
+  emptySlot: { color: '#8a94a6', glyph: '+' },
+} satisfies Record<string, Swatch>;

@@ -58,8 +58,7 @@
   opacity: 0.4;
   cursor: default;
 }
-.hud-btn:focus-visible,
-.hud-item:focus-visible {
+.hud-btn:focus-visible {
   outline: 2px solid var(--hud-selection);
   outline-offset: 2px;
 }
@@ -189,293 +188,371 @@
   }
 }
 
-/* Bottom: the sheets stack above the control row, which is always there. */
-.hud-bottom {
+/*
+ * Command console, StarCraft style: a selection panel beside a grid of square buttons, docked
+ * bottom-right on wide screens and along the bottom edge on phones. Buttons are dark beveled
+ * metal with a rim in the item's colour, the hotkey top-left and the cost bottom-right.
+ */
+.hud-console {
+  --cell: 60px;
+  --cell-gap: 6px;
+  --metal-hi: #2a3242;
+  --metal-lo: #0b0f18;
+  pointer-events: auto;
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  right: calc(var(--safe-right) + var(--gap));
+  bottom: calc(var(--safe-bottom) + var(--gap));
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--gap);
-  padding: 0 calc(var(--safe-right) + var(--gap)) calc(var(--safe-bottom) + var(--gap))
-    calc(var(--safe-left) + var(--gap));
-}
-.hud-bottom > * {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 520px;
-}
-.hud-controls {
-  pointer-events: auto;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
   gap: 6px;
-  padding: 4px;
+  padding: 8px;
+  border: 1px solid rgba(160, 190, 230, 0.18);
   border-radius: 16px;
-  background: var(--hud-panel);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-.hud-speed {
-  display: flex;
-  gap: 2px;
-}
-.hud-speed__btn {
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-  font-size: 13px;
-}
-.hud-speed__btn.is-active {
-  border-color: var(--edge);
-  background: rgba(255, 255, 255, 0.16);
-}
-.hud-research-btn {
-  position: relative;
-  padding: 0 10px;
-  font-size: 13px;
-}
-.hud-research-btn.is-active {
-  background: rgba(255, 255, 255, 0.16);
-}
-.hud-badge {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--hud-warn);
-  box-shadow: 0 0 0 2px var(--hud-space);
-}
-.hud-call {
-  display: inline-flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  margin-left: auto;
-  padding: 0 10px;
-  font-size: 13px;
-  line-height: 1.1;
-}
-.hud-call__bonus {
-  color: var(--hud-good);
-  font-size: 11px;
-}
-.hud-call__bonus:empty {
-  display: none;
-}
-
-/* Sheets */
-.hud-sheet {
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  max-height: min(46vh, 440px);
-  border-radius: 18px;
-  background: var(--hud-panel);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    var(--hud-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  overflow: hidden;
 }
-.hud-sheet--research {
-  max-width: 760px;
-  max-height: min(60vh, 560px);
-}
-.hud-sheet__head {
+.hud-console__top {
   display: flex;
-  align-items: center;
-  gap: var(--gap);
-  padding: 2px 4px 2px 14px;
+  justify-content: flex-end;
 }
-.hud-sheet__title {
-  flex: 1;
-  font-size: 15px;
-  font-weight: 700;
-}
-.hud-sheet__body,
-.hud-cards {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* The page blocks touch gestures for the canvas; lists still scroll. */
-  touch-action: pan-y;
-  padding: 0 8px 4px;
-}
-.hud-sheet__foot {
+.hud-console__main {
   display: flex;
-  align-items: center;
-  gap: var(--gap);
-  padding: 8px;
-  border-top: 1px solid var(--edge);
-}
-.hud-sheet__foot:empty {
-  display: none;
-}
-.hud-sheet__hint {
-  flex: 1;
-  color: var(--hud-muted);
-  font-size: 12px;
-}
-.hud-build {
-  flex: none;
-}
-.hud-empty {
-  padding: 12px 6px;
-  color: var(--hud-muted);
-}
-
-/* Build menu */
-.hud-menu {
-  display: grid;
-  gap: 6px;
-}
-.hud-item {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: var(--raise);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  touch-action: pan-y;
-  -webkit-tap-highlight-color: transparent;
-}
-.hud-item.is-chosen {
-  border-color: var(--hud-selection);
-  background: rgba(255, 255, 255, 0.11);
-}
-.hud-item.is-unaffordable .hud-item__name,
-.hud-item.is-unaffordable .hud-swatch {
-  opacity: 0.5;
-}
-.hud-item.is-unaffordable .hud-item__cost {
-  color: var(--hud-bad);
-}
-.hud-swatch {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--swatch);
-  color: #05070d;
-  font-size: 12px;
-  font-weight: 800;
-}
-.hud-item__main,
-.hud-detail__text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.hud-item__name,
-.hud-detail__name {
-  font-size: 14px;
-  font-weight: 600;
-}
-.hud-item__stats,
-.hud-detail__stats {
-  color: var(--hud-muted);
-  font-size: 11.5px;
-}
-.hud-item__reason {
-  color: var(--hud-bad);
-  font-size: 11px;
-}
-.hud-item__reason:empty {
-  display: none;
-}
-.hud-item__cost {
-  flex: none;
-  font-weight: 700;
-}
-.hud-item__cost::before {
-  content: '◆ ';
-  color: var(--hud-muted);
-  font-size: 10px;
-}
-
-/* Built structure */
-.hud-detail {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 4px 6px 8px;
-}
-.hud-detail__desc {
-  font-size: 12.5px;
-}
-.hud-detail__off {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--hud-warn) 20%, transparent);
-  color: var(--hud-warn);
-  font-size: 11px;
-  font-weight: 700;
-}
-.hud-toggle,
-.hud-sell {
-  flex: 1;
-}
-
-/* Research cards */
-.hud-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 8px;
-  padding-bottom: 8px;
+  align-items: stretch;
 }
-.hud-card {
+
+/* Selection panel */
+.hud-portrait {
+  box-sizing: border-box;
+  width: 230px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   padding: 10px;
   border: 1px solid var(--edge);
   border-radius: 12px;
-  background: var(--raise);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.05));
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
 }
-.hud-card__top {
+.hud-portrait__icon {
+  --rim: var(--hud-muted);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 2px solid var(--rim);
+  border-radius: 10px;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--rim) 45%, var(--metal-hi)), var(--metal-lo));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--rim) 35%, transparent);
+  color: var(--rim);
+  font-size: 18px;
+  font-weight: 800;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--rim) 60%, transparent);
+}
+.hud-portrait__words {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hud-portrait__name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.hud-portrait__sub {
+  color: var(--hud-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hud-portrait__text {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--hud-text) 85%, transparent);
+}
+.hud-portrait__live {
+  color: var(--hud-warn);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.hud-portrait__live:empty {
+  display: none;
+}
+
+/* The grid of command buttons */
+.hud-grid {
+  display: grid;
+  grid-template-columns: repeat(4, var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--cell-gap);
+}
+.hud-cmd {
+  --rim: var(--hud-muted);
+  pointer-events: auto;
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid color-mix(in srgb, var(--rim) 70%, #000);
+  border-radius: 9px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--rim) 22%, var(--metal-hi)), var(--metal-lo) 80%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+  color: var(--rim);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    box-shadow 120ms ease,
+    transform 60ms ease,
+    filter 120ms ease;
+}
+.hud-cmd:hover:not(.is-empty):not(.is-disabled),
+.hud-cmd:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.45),
+    0 0 0 1px var(--rim),
+    0 0 14px color-mix(in srgb, var(--rim) 55%, transparent);
+  filter: brightness(1.15);
+}
+.hud-cmd:focus-visible {
+  outline: 2px solid var(--hud-selection);
+  outline-offset: 2px;
+}
+.hud-cmd:active:not(.is-empty):not(.is-disabled) {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.6),
+    0 0 10px color-mix(in srgb, var(--rim) 45%, transparent);
+}
+.hud-cmd.is-empty {
+  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+.hud-cmd.is-disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.85) brightness(0.6);
+}
+.hud-cmd__glyph {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--rim) 60%, transparent),
+    0 1px 1px rgba(0, 0, 0, 0.8);
+}
+.hud-cmd__glyph.is-long {
+  font-size: 15px;
+}
+.hud-cmd__key,
+.hud-cmd__cost {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 1px #000;
+}
+.hud-cmd__key {
+  top: 4px;
+  left: 5px;
+  color: var(--hud-text);
+  opacity: 0.85;
+}
+.hud-cmd__cost {
+  right: 4px;
+  bottom: 4px;
+  color: var(--hud-text);
+}
+.hud-cmd__cost--minerals {
+  color: var(--hud-minerals);
+}
+.hud-cmd__cost--science {
+  color: #7fd6ff;
+}
+.hud-cmd__cost--exotics {
+  color: #d6a8ff;
+}
+.hud-cmd__cost--bonus {
+  color: var(--hud-good);
+}
+.hud-cmd.is-disabled .hud-cmd__cost {
+  color: var(--hud-bad);
+}
+.hud-cmd__alert {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hud-warn);
+  box-shadow: 0 0 6px var(--hud-warn);
+}
+
+/* Tooltip: floats above the console, so it never moves the field. */
+.hud-tip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  box-sizing: border-box;
+  width: min(320px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid rgba(160, 190, 230, 0.25);
+  border-radius: 12px;
+  background: rgba(8, 11, 19, 0.96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.hud-tip__head {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
-.hud-card__name {
+.hud-tip__name {
   flex: 1;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
-.hud-card__line {
+.hud-tip__key {
+  padding: 1px 5px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  color: var(--hud-muted);
+  font: inherit;
+  font-size: 10px;
+}
+.hud-tip__price {
+  color: var(--hud-minerals);
+  font-weight: 700;
+  font-size: 12px;
+}
+.hud-tip__kind {
   color: var(--hud-muted);
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.hud-card__text {
-  flex: 1;
+.hud-tip__text {
   font-size: 12.5px;
 }
-.hud-card__note {
+.hud-tip__stats {
+  color: var(--hud-muted);
+  font-size: 11.5px;
+}
+.hud-tip__note {
   color: var(--hud-warn);
   font-size: 11.5px;
 }
-.hud-card.is-unaffordable .hud-card__name {
-  color: var(--hud-muted);
+.hud-tip__reason {
+  color: var(--hud-bad);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.hud-tip__text:empty,
+.hud-tip__stats:empty,
+.hud-tip__note:empty,
+.hud-tip__reason:empty,
+.hud-tip__price:empty,
+.hud-tip__key:empty {
+  display: none;
+}
+
+/* Speed: a small segmented control in the console's top row. */
+.hud-speed {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.hud-speed__btn {
+  min-width: 40px;
+  min-height: 30px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+}
+.hud-speed__btn.is-active {
+  border-color: var(--edge);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Fingers: speed buttons back to full touch size. */
+@media (pointer: coarse) {
+  .hud-speed__btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Phones: the console spans the bottom edge; the selection panel is a short line above the grid. */
+@media (max-width: 640px) {
+  .hud-console {
+    left: calc(var(--safe-left) + var(--gap));
+    padding: 6px;
+    gap: 4px;
+  }
+  .hud-console__main {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .hud-console__top {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+  }
+  .hud-portrait {
+    width: auto;
+    min-height: 48px;
+    padding: 6px 8px;
+    padding-right: 196px;
+    gap: 8px;
+    align-items: center;
+  }
+  .hud-portrait__icon {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+  .hud-portrait__text {
+    display: none;
+  }
+  .hud-portrait__sub,
+  .hud-portrait__live {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hud-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: 52px;
+  }
+  .hud-tip {
+    width: 100%;
+  }
 }
 
 /* End screen */
@@ -530,12 +607,15 @@
   font-size: 16px;
 }
 
-/* Narrow phones: keep the control row on one line. */
+/* Narrow phones */
 @media (max-width: 370px) {
-  .hud-speed__btn {
-    min-width: 40px;
-  }
   .hud-bar {
     padding: 6px 8px;
+  }
+  .hud-speed__btn {
+    min-width: 36px;
+  }
+  .hud-portrait {
+    padding-right: 164px;
   }
 }

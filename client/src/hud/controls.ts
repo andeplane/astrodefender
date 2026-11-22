@@ -1,8 +1,7 @@
 import type { Game } from '@engine';
 import type { Speed } from '../contract';
-import { compact } from '../labels';
 import type { HudContext, Part } from './context';
-import { button, classSetter, el, hiddenSetter, textSetter } from './dom';
+import { button, classSetter, el } from './dom';
 
 const SPEEDS: { speed: Speed; label: string; title: string }[] = [
   { speed: 0, label: '❚❚', title: 'Pause' },
@@ -45,35 +44,6 @@ export function createSpeedControl(context: HudContext): Part {
     update() {
       const current = context.session.speed;
       for (const set of setters) set(current);
-    },
-  };
-}
-
-/** Calls the next wave early while the build phase runs, and says what that pays. */
-export function createCallWave(context: HudContext): Part {
-  const element = button('hud-btn hud-btn--primary hud-call', '', () => {
-    const bonus = earlyBonus(context.session.game);
-    if (context.send({ type: 'startWave' })) {
-      context.toast(bonus >= 1 ? `Wave called early · +${compact(bonus)} minerals` : 'Wave called', 'good');
-    }
-  });
-  const label = el('span', 'hud-call__label', 'Call wave');
-  const bonusText = el('span', 'hud-call__bonus');
-  element.append(label, bonusText);
-  const setBonus = textSetter(bonusText);
-  const hide = hiddenSetter(element);
-  return {
-    element,
-    update(game) {
-      const { wave, status } = game.state;
-      // A countdown of 0 means the wave starts on the next tick: there is nothing left to call.
-      const callable =
-        status === 'playing' && !wave.active && wave.index < game.level.waves.length && wave.countdown > 0;
-      hide(!callable);
-      if (callable) {
-        const bonus = earlyBonus(game);
-        setBonus(bonus >= 1 ? `+${compact(bonus)}` : '');
-      }
     },
   };
 }
