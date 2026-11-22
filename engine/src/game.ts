@@ -1,3 +1,4 @@
+import { applyModifier } from './modifiers';
 import { TAU, type Vec, clamp, distance, fromPolar, nextRandom, segmentHitsCircle } from './math';
 import type {
   Asteroid,
@@ -5,16 +6,23 @@ import type {
   CommandError,
   CommandResult,
   Content,
+  Cost,
   DamageType,
+  Effect,
   GameEvent,
   GameState,
+  GeneratorDef,
   LevelDef,
+  Modifier,
   QueuedSpawn,
+  Resource,
   Site,
   Structure,
   StructureDef,
+  TechDef,
 } from './types';
 
+const RESOURCES: Resource[] = ['minerals', 'science', 'exotics'];
 const OK: CommandResult = { ok: true };
 const fail = (error: CommandError): CommandResult => ({ ok: false, error });
 
@@ -36,19 +44,31 @@ export class Game {
   readonly content: Content;
   readonly level: LevelDef;
   state: GameState;
+  /** Structure definitions with the state's modifiers applied, rebuilt when the modifiers change. */
+  private modified?: { modifiers: Modifier[]; count: number; defs: Record<string, StructureDef> };
 
   constructor(content: Content, level: LevelDef, seed: number, state?: GameState) {
     this.content = content;
     this.level = level;
-    this.state = state ?? {
+    if (state) {
+      this.state = state;
+      return;
+    }
+    this.state = {
       tick: 0,
       rng: seed | 0,
       nextId: 1,
       status: 'playing',
       minerals: level.start.minerals,
       science: 0,
+      exotics: 0,
       population: level.start.population,
-      techs: [...level.start.techs],
+      techs: [],
+      offer: [],
+      unlocked: [...(level.start.structures ?? Object.keys(content.structures))],
+      modifiers: [],
+      orbitSlots: level.world.shells.map((shell) => shell.open ?? shell.slots),
+      reserves: { ...level.start.reserves },
       structures: [],
       asteroids: [],
       projectiles: [],
@@ -56,6 +76,8 @@ export class Game {
       power: { generation: 0, demand: 0, factor: 1, stored: 0, capacity: 0 },
       stats: { destroyed: 0, burnt: 0, impacts: 0, mineralsEarned: 0, energyUsed: 0, energyUnserved: 0 },
     };
+    for (const id of level.start.techs) this.take(content.techs[id]);
+    this.dealOffer();
   }
 
   /** Continue from a saved state. The copy is deep, so the save is never mutated. */
@@ -97,12 +119,29 @@ export class Game {
     return fromPolar(shell.radius, (site.slot / shell.slots) * TAU + this.orbitalSpeed(shell.radius) * time);
   }
 
+  /** Every structure definition as it stands now, with what research has changed. */
+  structures(): Record<string, StructureDef> {
+    const { modifiers } = this.state;
+    if (this.modified?.modifiers !== modifiers || this.modified.count !== modifiers.length) {
+      const defs = { ...this.content.structures };
+      for (const modifier of modifiers) defs[modifier.structure] = applyModifier(defs[modifier.structure], modifier);
+      this.modified = { modifiers, count: modifiers.length, defs };
+    }
+    return this.modified.defs;
+  }
+
   /** Share of full sunlight at a site. The sun sits far away along +x. */
   sunlight(site: Site, time = this.time): number {
     const at = this.sitePosition(site, time);
     const radius = this.level.world.planetRadius;
     if (site.kind === 'surface') return Math.max(0, at.x / radius);
     return at.x < 0 && Math.abs(at.y) < radius ? 0 : 1;
+  }
+
+  private light(source: GeneratorDef['source'], site: Site): number {
+    if (source === 'constant') return 1;
+    const sun = this.sunlight(site);
+    return source === 'daylight' && sun > 0 ? 1 : sun;
   }
 
   private validSite(site: Site): boolean {
@@ -122,6 +161,17 @@ export class Game {
     );
   }
 
+  /** True when the shell holds as many structures as its open slots allow. */
+  private shellFull(shell: number): boolean {
+    const built = this.state.structures.filter((s) => s.site.kind === 'shell' && s.site.shell === shell).length;
+    return built >= this.state.orbitSlots[shell];
+  }
+
+  private hasFeature(def: StructureDef, site: Site): boolean {
+    if (!def.feature) return true;
+    return site.kind === 'surface' && (this.level.world.surfaceFeatures?.[def.feature] ?? []).includes(site.slot);
+  }
+
   freeSites(kind: Site['kind']): Site[] {
     const world = this.level.world;
     const sites: Site[] = [];
@@ -129,18 +179,101 @@ export class Game {
       for (let slot = 0; slot < world.surfaceSlots; slot++) sites.push({ kind, slot });
     } else {
       world.shells.forEach((shell, index) => {
+        if (this.shellFull(index)) return;
         for (let slot = 0; slot < shell.slots; slot++) sites.push({ kind, shell: index, slot });
       });
     }
     return sites.filter((site) => !this.structureAt(site));
   }
 
-  private unlocked(requires: string[] | undefined): boolean {
-    return (requires ?? []).every((tech) => this.state.techs.includes(tech));
+  /** The free sites a structure could be built on right now. */
+  sitesFor(def: StructureDef): Site[] {
+    return def.sites.flatMap((kind) => this.freeSites(kind)).filter((site) => this.hasFeature(def, site));
   }
 
   canBuild(def: StructureDef): boolean {
-    return this.unlocked(def.requires) && this.state.minerals >= def.cost;
+    return this.state.unlocked.includes(def.id) && this.state.minerals >= def.cost;
+  }
+
+  private timesTaken(tech: string): number {
+    return this.state.techs.filter((id) => id === tech).length;
+  }
+
+  /** What the tech costs now: a repeatable one grows each time it is taken. */
+  techCost(tech: TechDef): Cost {
+    const scale = Math.pow(tech.repeat?.growth ?? 1, this.timesTaken(tech.id));
+    const cost: Cost = {};
+    for (const resource of RESOURCES) {
+      const amount = tech.cost[resource];
+      if (amount !== undefined) cost[resource] = amount * scale;
+    }
+    return cost;
+  }
+
+  canAfford(cost: Cost): boolean {
+    return RESOURCES.every((resource) => this.state[resource] >= (cost[resource] ?? 0));
+  }
+
+  /** Why a tech cannot be taken, whatever the player can pay. */
+  private blocked(tech: TechDef): CommandError | undefined {
+    const { techs } = this.state;
+    if (!tech.repeat && techs.includes(tech.id)) return 'already-researched';
+    if (!(tech.requires ?? []).every((id) => techs.includes(id))) return 'locked';
+    const rival = techs.some((id) => id !== tech.id && this.content.techs[id].exclusive === tech.exclusive);
+    if (tech.exclusive && rival) return 'excluded';
+    return undefined;
+  }
+
+  private pool(): TechDef[] {
+    const ids = this.level.research?.pool ?? Object.keys(this.content.techs);
+    return ids.map((id) => this.content.techs[id]);
+  }
+
+  /** The techs the player may pick from now: the cards on the table, or the whole open pool. */
+  researchable(): TechDef[] {
+    if (this.level.research?.choices) return this.state.offer.map((id) => this.content.techs[id]);
+    return this.pool().filter((tech) => !this.blocked(tech));
+  }
+
+  /** Deal a fresh hand of cards from the techs that can be taken. Does nothing in an open pool. */
+  private dealOffer(): void {
+    const choices = this.level.research?.choices ?? 0;
+    const offer: string[] = [];
+    if (choices > 0) {
+      const candidates = this.pool().filter((tech) => !this.blocked(tech));
+      while (offer.length < choices && candidates.length > 0) {
+        const [dealt] = candidates.splice(Math.floor(this.random() * candidates.length), 1);
+        offer.push(dealt.id);
+      }
+    }
+    this.state.offer = offer;
+  }
+
+  private take(tech: TechDef): void {
+    this.state.techs.push(tech.id);
+    for (const effect of tech.effects) this.applyEffect(effect);
+  }
+
+  private applyEffect(effect: Effect): void {
+    const state = this.state;
+    switch (effect.type) {
+      case 'unlock':
+        if (!state.unlocked.includes(effect.structure)) state.unlocked.push(effect.structure);
+        break;
+      case 'modify':
+        state.modifiers.push(effect);
+        break;
+      case 'slots': {
+        const shell = this.level.world.shells[effect.shell];
+        // A level without that shell has nothing to open.
+        if (shell)
+          state.orbitSlots[effect.shell] = Math.min(shell.slots, state.orbitSlots[effect.shell] + effect.count);
+        break;
+      }
+      case 'reserve':
+        state.reserves[effect.reserve] = (state.reserves[effect.reserve] ?? 0) + effect.amount;
+        break;
+    }
   }
 
   apply(command: Command): CommandResult {
@@ -148,21 +281,25 @@ export class Game {
     if (state.status !== 'playing') return fail('game-over');
     switch (command.type) {
       case 'build': {
-        const def = this.content.structures[command.structure];
+        const def = this.structures()[command.structure];
+        const site = command.site;
         if (!def) return fail('unknown-structure');
-        if (!this.unlocked(def.requires)) return fail('locked');
-        if (!this.validSite(command.site) || !def.sites.includes(command.site.kind)) return fail('invalid-site');
-        if (this.structureAt(command.site)) return fail('site-occupied');
+        if (!state.unlocked.includes(def.id)) return fail('locked');
+        if (!this.validSite(site) || !def.sites.includes(site.kind) || !this.hasFeature(def, site)) {
+          return fail('invalid-site');
+        }
+        if (this.structureAt(site)) return fail('site-occupied');
+        if (site.kind === 'shell' && this.shellFull(site.shell)) return fail('no-capacity');
         if (state.minerals < def.cost) return fail('cannot-afford');
         state.minerals -= def.cost;
-        state.structures.push({ id: state.nextId++, def: def.id, site: command.site, enabled: true, charge: 0 });
+        state.structures.push({ id: state.nextId++, def: def.id, site, enabled: true, charge: 0 });
         return OK;
       }
       case 'sell': {
         const index = state.structures.findIndex((s) => s.id === command.id);
         if (index < 0) return fail('unknown-id');
         const [sold] = state.structures.splice(index, 1);
-        state.minerals += this.content.structures[sold.def].cost * this.level.refund;
+        state.minerals += this.structures()[sold.def].cost * this.level.refund;
         return OK;
       }
       case 'setEnabled': {
@@ -174,11 +311,14 @@ export class Game {
       case 'research': {
         const tech = this.content.techs[command.tech];
         if (!tech) return fail('unknown-tech');
-        if (state.techs.includes(tech.id)) return fail('already-researched');
-        if (!this.unlocked(tech.requires)) return fail('locked');
-        if (state.science < tech.cost) return fail('cannot-afford');
-        state.science -= tech.cost;
-        state.techs.push(tech.id);
+        const blocked = this.blocked(tech);
+        if (blocked) return fail(blocked);
+        if (!this.researchable().includes(tech)) return fail('not-offered');
+        const cost = this.techCost(tech);
+        if (!this.canAfford(cost)) return fail('cannot-afford');
+        for (const resource of RESOURCES) state[resource] -= cost[resource] ?? 0;
+        this.take(tech);
+        this.dealOffer();
         return OK;
       }
       case 'startWave': {
@@ -252,6 +392,9 @@ export class Game {
     const vaporized = asteroid.lastHit === 'thermal';
     let fragmentMass = 0;
     let fragments = 0;
+    if (def.fuel) {
+      state.reserves[def.fuel.reserve] = (state.reserves[def.fuel.reserve] ?? 0) + asteroid.mass * def.fuel.perMass;
+    }
     if (def.fragments && !vaporized) {
       const each = (asteroid.mass * def.fragments.massFraction) / def.fragments.count;
       if (each >= world.minFragmentMass) {
@@ -284,7 +427,11 @@ export class Game {
     const dt = world.dt;
 
     // Power: add up generation and what every enabled consumer asks for this tick.
-    let generation = 0;
+    const structures = this.structures();
+    let firm = 0;
+    let flexible = 0;
+    const fuelLeft = { ...state.reserves };
+    const burners: { reserve: string; amount: number; throttled: boolean }[] = [];
     let demand = 0;
     let capacity = 0;
     const beams: { structure: Structure; target: Asteroid; dps: number; damage: DamageType }[] = [];
@@ -292,11 +439,23 @@ export class Game {
     const fields: { at: Vec; radius: number; slow: number }[] = [];
     let science = 0;
     for (const structure of state.structures) {
-      const def = this.content.structures[structure.def];
+      const def = structures[structure.def];
       capacity += def.battery?.capacity ?? 0;
       if (!structure.enabled) continue;
       if (def.generator) {
-        generation += def.generator.output * (def.generator.source === 'solar' ? this.sunlight(structure.site) : 1);
+        const { fuel, throttled } = def.generator;
+        let output = def.generator.output * this.light(def.generator.source, structure.site);
+        if (fuel) {
+          // A plant short of fuel runs at the share its reserve still covers.
+          const want = fuel.rate * dt;
+          const have = fuelLeft[fuel.reserve] ?? 0;
+          const share = want <= have ? 1 : have / want;
+          fuelLeft[fuel.reserve] = have - want * share;
+          output *= share;
+          burners.push({ reserve: fuel.reserve, amount: want * share, throttled });
+        }
+        if (throttled) flexible += output;
+        else firm += output;
       }
       if (def.weapon?.type === 'beam') {
         const target = this.pickTarget(this.sitePosition(structure.site), def.weapon.range, false);
@@ -316,6 +475,14 @@ export class Game {
         demand += def.lab.draw;
         science += def.lab.science;
       }
+    }
+    // Throttled plants cover only what the rest leaves unmet, and burn fuel in proportion.
+    const flexUsed = clamp(demand - firm, 0, flexible);
+    const generation = firm + flexUsed;
+    const throttle = flexible > 0 ? flexUsed / flexible : 0;
+    for (const burner of burners) {
+      const burnt = burner.amount * (burner.throttled ? throttle : 1);
+      state.reserves[burner.reserve] = Math.max(0, state.reserves[burner.reserve] - burnt);
     }
     const needed = demand * dt;
     const available = generation * dt + Math.min(state.power.stored, capacity);
@@ -337,12 +504,14 @@ export class Game {
     }
     for (const { structure, draw } of charging) structure.charge += draw * factor * dt;
     for (const structure of state.structures) {
-      const weapon = this.content.structures[structure.def].weapon;
+      const weapon = structures[structure.def].weapon;
       if (!structure.enabled || weapon?.type !== 'launcher' || structure.charge < weapon.energyPerShot) continue;
+      if (state.minerals < weapon.ammo) continue;
       const from = this.sitePosition(structure.site);
       const target = this.pickTarget(from, weapon.range, true);
       if (!target) continue;
       structure.charge = 0;
+      state.minerals -= weapon.ammo;
       target.pending += weapon.hit * this.content.asteroids[target.kind].resist[weapon.damage];
       const flight = distance(from, fromPolar(target.r, target.theta)) / weapon.speed;
       state.projectiles.push({
@@ -439,7 +608,13 @@ export class Game {
     }
     while (wave.queue.length > 0 && wave.queue[0].atTick <= wave.elapsed) {
       const next = wave.queue.shift() as QueuedSpawn;
-      const spawned = this.spawn(next.kind, next.mass, this.level.world.spawnRadius, this.random() * TAU, next.direction);
+      const spawned = this.spawn(
+        next.kind,
+        next.mass,
+        this.level.world.spawnRadius,
+        this.random() * TAU,
+        next.direction,
+      );
       events.push({ type: 'spawned', id: spawned.id, kind: spawned.kind });
     }
     wave.elapsed++;

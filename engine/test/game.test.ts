@@ -60,7 +60,9 @@ describe('commands', () => {
   });
 
   it('rejects invalid builds with a reason', () => {
-    const game = newGame({ start: { minerals: 100, population: 100, techs: [] } });
+    const game = newGame({
+      start: { minerals: 100, population: 100, techs: [], structures: ['laser', 'coalPlant'] },
+    });
     expect(errorOf(game, { type: 'build', structure: 'nope', site: surface(0) })).toBe('unknown-structure');
     expect(errorOf(game, { type: 'build', structure: 'solarFarm', site: surface(0) })).toBe('locked');
     expect(errorOf(game, { type: 'build', structure: 'coalPlant', site: shell(0, 0) })).toBe('invalid-site');
@@ -72,18 +74,6 @@ describe('commands', () => {
     expect(errorOf(game, { type: 'build', structure: 'laser', site: surface(1) })).toBe('cannot-afford');
     expect(errorOf(game, { type: 'sell', id: 999 })).toBe('unknown-id');
     expect(errorOf(game, { type: 'setEnabled', id: 999, enabled: false })).toBe('unknown-id');
-  });
-
-  it('gates structures behind research paid for with science', () => {
-    const game = newGame();
-    expect(errorOf(game, { type: 'research', tech: 'nope' })).toBe('unknown-tech');
-    expect(errorOf(game, { type: 'research', tech: 'fission' })).toBe('locked');
-    expect(errorOf(game, { type: 'research', tech: 'photovoltaics' })).toBe('cannot-afford');
-    game.state.science = 25;
-    must(game, { type: 'research', tech: 'photovoltaics' });
-    expect(game.state.science).toBe(5);
-    expect(errorOf(game, { type: 'research', tech: 'photovoltaics' })).toBe('already-researched');
-    must(game, { type: 'build', structure: 'solarFarm', site: surface(0) });
   });
 
   it('refuses commands once the game is over', () => {
@@ -144,7 +134,7 @@ describe('energy', () => {
   });
 
   it('makes surface solar follow daylight', () => {
-    const game = newGame({ start: { minerals: 10_000, population: 100, techs: ['photovoltaics'] } });
+    const game = newGame();
     must(game, { type: 'build', structure: 'solarFarm', site: surface(0) });
     must(game, { type: 'build', structure: 'solarFarm', site: surface(4) });
     game.tick();
@@ -359,7 +349,10 @@ describe('railguns', () => {
   it('pay more for a kill low down than for one high up', () => {
     const low = newGame();
     const high = newGame();
-    for (const [game, r] of [[low, 110], [high, 400]] as const) {
+    for (const [game, r] of [
+      [low, 110],
+      [high, 400],
+    ] as const) {
       const iron = place(game, { kind: 'iron', mass: 1.5, r });
       iron.hp = 0;
       iron.lastHit = 'explosive';
@@ -371,11 +364,9 @@ describe('railguns', () => {
 
 describe('relativity field', () => {
   it('slows bodies inside it, in proportion to the power it gets', () => {
-    const content = baseContent;
-    const start = { minerals: 10_000, population: 100, techs: ['relativity', 'fission'] };
-    const free = new Game(content, level({ start }), 1);
-    const slowed = new Game(content, level({ start }), 1);
-    const starved = new Game(content, level({ start }), 1);
+    const free = new Game(baseContent, level(), 1);
+    const slowed = new Game(baseContent, level(), 1);
+    const starved = new Game(baseContent, level(), 1);
     must(slowed, { type: 'build', structure: 'fissionPlant', site: surface(0) });
     must(slowed, { type: 'build', structure: 'relativityField', site: shell(0, 0) });
     must(starved, { type: 'build', structure: 'coalPlant', site: surface(0) });

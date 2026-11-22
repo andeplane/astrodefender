@@ -6,7 +6,7 @@ drives through commands and reads back through events and plain JSON state.
 ```sh
 npm install
 npm test          # tests, fails under 95% coverage
-npm run sim       # baseline bots play the first level over 50 seeds
+npm run sim       # baseline bots play the first level over 50 seeds (about a minute)
 ```
 
 ## Model
@@ -33,14 +33,46 @@ immunity.
 
 **Waves** start on their own after a build phase; calling one early pays a bonus.
 
+**Fuel is finite.** A level starts with reserves (coal, oil, uranium). A plant that names a
+reserve burns it while it runs and stops when it is gone. A throttled plant covers only the
+demand that free power did not, and burns in proportion. Ice that is destroyed adds fusion fuel.
+
+## Research and the tech tree
+
+The engine has no tech in it. It knows four **effects**, and a tech is a cost, prerequisites and
+a list of effects:
+
+| Effect | What it does |
+| --- | --- |
+| `unlock` | makes a structure buildable |
+| `modify` | sets, adds to or multiplies one field of a structure, by path (`weapon.range`) |
+| `slots` | opens orbital slots in a shell |
+| `reserve` | adds to a fuel reserve |
+
+A tech may also belong to an `exclusive` group (taking one locks the rest for the run) or be
+repeatable at a growing cost. A level names its own `pool` of techs and how many cards are on
+the table at once; the hand is dealt with the game's seeded RNG.
+
+The tree itself is data in `src/tree/core.ts`: 41 cards. Changing a number, a prerequisite or
+what a card does is an edit there and nowhere else. `validate()` checks that every card and level
+refers to structures, fields, techs and shells that exist, and the tests run it, so a typo fails
+a test instead of silently doing nothing. A card whose mechanic the engine lacks carries a `todo`
+and no effects; 17 of the 41 do something today.
+
+To add a card that needs something new, add the mechanic to the engine as a field on a structure
+or a new effect, then describe the card with it.
+
 ## Layout
 
-- `src/game.ts` — the simulation: `apply(command)`, `tick()`, events
-- `src/content.ts` — asteroids, structures, techs and the first level, all as data
-- `src/bot.ts` — `runGame` and baseline players, used to check balance
-- `src/types.ts` — every definition, state, command and event type
+- `src/game.ts`: the simulation: `apply(command)`, `tick()`, events
+- `src/modifiers.ts`: applies a `modify` effect to a structure definition
+- `src/validate.ts`: checks content and levels for broken references
+- `src/content.ts`: asteroids, structures and the first level, all as data
+- `src/tree/core.ts`: the tech tree, as data
+- `src/bot.ts`: `runGame` and baseline players, used to check balance
+- `src/types.ts`: every definition, state, command and event type
 
 ## Not in yet
 
-Mirrors, nukes, wormholes, moons, separate surface and orbital grids, fuel and pollution for
-power plants, compute, and a real tech tree (the four techs in `content.ts` are placeholders).
+Mirrors, nukes, wormholes, moons, salvage, sight and compute, separate surface and orbital grids,
+and pollution. The cards that wait for them say so in their `todo`.

@@ -1,6 +1,9 @@
 # Astro Defender: tech tree design
 
-Status: proposal. Nothing here is implemented or balanced yet. All numbers are first guesses to be
+Status: superseded first draft, kept for its reasoning. The tree that is implemented lives in
+`engine/src/tree/core.ts` and differs from this document in resources and cards.
+
+Original status: proposal. Nothing here is implemented or balanced yet. All numbers are first guesses to be
 tuned with the bot in `engine/src/bot.ts`. No simulation was run for this document.
 
 Short version:
