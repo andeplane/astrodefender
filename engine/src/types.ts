@@ -2,13 +2,14 @@ export type DamageType = 'thermal' | 'kinetic' | 'explosive';
 export type SiteKind = 'surface' | 'shell';
 
 /** Where a structure sits: a slot on the rotating planet, or a slot in an orbital shell. */
-export type Site =
-  | { kind: 'surface'; slot: number }
-  | { kind: 'shell'; shell: number; slot: number };
+export type Site = { kind: 'surface'; slot: number } | { kind: 'shell'; shell: number; slot: number };
 
 export interface ShellDef {
   radius: number;
+  /** Positions in the shell. */
   slots: number;
+  /** How many of them may be built on at the start. Defaults to all; research grants more. */
+  open?: number;
 }
 
 export interface WorldDef {
@@ -24,6 +25,8 @@ export interface WorldDef {
   /** Radial decay every asteroid has outside the atmosphere, units/s. */
   inflow: number;
   surfaceSlots: number;
+  /** Surface slots with a named feature, such as water. A structure may demand one. */
+  surfaceFeatures?: Record<string, number[]>;
   shells: ShellDef[];
   spawnRadius: number;
   /** Mass at which drag is exactly dragCoef; lighter bodies sink faster. */
@@ -60,12 +63,21 @@ export interface AsteroidDef {
   /** Population lost per unit of mass on impact. */
   impact: number;
   fragments?: FragmentDef;
+  /** Added to a fuel reserve per unit of mass destroyed. */
+  fuel?: { reserve: string; perMass: number };
 }
 
 export interface GeneratorDef {
   output: number;
-  /** Solar output follows daylight on the surface and the planet's shadow in orbit. */
-  source: 'constant' | 'solar';
+  /**
+   * Solar output follows the height of the sun on the surface and the planet's shadow in orbit;
+   * daylight is full output whenever the sun is up at all.
+   */
+  source: 'constant' | 'solar' | 'daylight';
+  /** Burns this much of a level reserve per second while running, and stops when it is gone. */
+  fuel?: { reserve: string; rate: number };
+  /** Follows demand: covers only what other generation leaves unmet, and burns fuel to match. */
+  throttled: boolean;
 }
 
 export interface BeamDef {
@@ -85,6 +97,8 @@ export interface LauncherDef {
   /** Power drawn while charging. */
   draw: number;
   energyPerShot: number;
+  /** Minerals spent per shot. */
+  ammo: number;
   speed: number;
   /** Radius gained by a refMass body per hit; heavier bodies move less. */
   knockback: number;
@@ -107,7 +121,8 @@ export interface StructureDef {
   id: string;
   cost: number;
   sites: SiteKind[];
-  requires?: string[];
+  /** Only buildable on a surface slot that has this feature. */
+  feature?: string;
   generator?: GeneratorDef;
   battery?: { capacity: number };
   weapon?: BeamDef | LauncherDef;
@@ -115,10 +130,37 @@ export interface StructureDef {
   lab?: LabDef;
 }
 
+export type Resource = 'minerals' | 'science' | 'exotics';
+export type Cost = Partial<Record<Resource, number>>;
+
+/** Changes one field of a structure definition, named by its path, such as `weapon.range`. */
+export interface Modifier {
+  type: 'modify';
+  structure: string;
+  stat: string;
+  op: 'add' | 'mul' | 'set';
+  value: number | boolean | string;
+}
+
+/**
+ * Everything research can do. A tech is only a list of these, so the tree is data and the
+ * engine never names a tech.
+ */
+export type Effect =
+  | { type: 'unlock'; structure: string }
+  | Modifier
+  | { type: 'slots'; shell: number; count: number }
+  | { type: 'reserve'; reserve: string; amount: number };
+
 export interface TechDef {
   id: string;
-  cost: number;
+  cost: Cost;
   requires?: string[];
+  /** Techs sharing a group exclude each other: taking one locks the rest for the run. */
+  exclusive?: string;
+  /** May be taken again; the cost is multiplied by `growth` each time. */
+  repeat?: { growth: number };
+  effects: Effect[];
 }
 
 export interface Content {
@@ -147,7 +189,21 @@ export interface WaveDef {
 export interface LevelDef {
   world: WorldDef;
   waves: WaveDef[];
-  start: { minerals: number; population: number; techs: string[] };
+  start: {
+    minerals: number;
+    population: number;
+    /** Researched from the start, with their effects applied. */
+    techs: string[];
+    /** Structures buildable with no research. Defaults to every structure. */
+    structures?: string[];
+    /** Fuel in the ground, by reserve. */
+    reserves?: Record<string, number>;
+  };
+  /**
+   * The techs this level offers. With `choices` above 0 the player picks from that many cards
+   * drawn from the pool; with 0 the whole pool is open. Defaults to every tech, open.
+   */
+  research?: { pool: string[]; choices: number };
   /** Seconds of build time before each wave starts on its own. */
   waveDelay: number;
   /** Minerals per second skipped when the player calls a wave early. */
@@ -228,8 +284,17 @@ export interface GameState {
   status: 'playing' | 'won' | 'lost';
   minerals: number;
   science: number;
+  exotics: number;
   population: number;
+  /** In the order taken. A repeatable tech appears once per time taken. */
   techs: string[];
+  /** The research cards on the table, when the level deals cards. */
+  offer: string[];
+  unlocked: string[];
+  modifiers: Modifier[];
+  /** Structures allowed per shell. */
+  orbitSlots: number[];
+  reserves: Record<string, number>;
   structures: Structure[];
   asteroids: Asteroid[];
   projectiles: Projectile[];
@@ -252,6 +317,9 @@ export type CommandError =
   | 'unknown-id'
   | 'locked'
   | 'already-researched'
+  | 'excluded'
+  | 'not-offered'
+  | 'no-capacity'
   | 'cannot-afford'
   | 'invalid-site'
   | 'site-occupied'

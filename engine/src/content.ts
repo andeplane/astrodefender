@@ -1,8 +1,9 @@
+import { coreTechs } from './tree/core';
 import type { Content, LevelDef, WorldDef } from './types';
 
 /**
  * First-pass content. Every number here is a starting point to be tuned with the bot in
- * `bot.ts`; the tech list is a placeholder until the tech tree is designed.
+ * `bot.ts`. The techs come from `tree/core.ts`; what they unlock and change is defined here.
  */
 export const baseContent: Content = {
   asteroids: {
@@ -35,30 +36,59 @@ export const baseContent: Content = {
       yield: 0.5,
       impact: 0.8,
       fragments: { count: 4, massFraction: 0.7 },
+      fuel: { reserve: 'fusionFuel', perMass: 1 },
     },
   },
   structures: {
-    coalPlant: { id: 'coalPlant', cost: 40, sites: ['surface'], generator: { output: 20, source: 'constant' } },
+    coalPlant: {
+      id: 'coalPlant',
+      cost: 40,
+      sites: ['surface'],
+      generator: { output: 20, source: 'constant', fuel: { reserve: 'coal', rate: 1 }, throttled: false },
+    },
+    oilPlant: {
+      id: 'oilPlant',
+      cost: 60,
+      sites: ['surface'],
+      generator: { output: 40, source: 'constant', fuel: { reserve: 'oil', rate: 2 }, throttled: false },
+    },
+    dam: {
+      id: 'dam',
+      cost: 80,
+      sites: ['surface'],
+      feature: 'water',
+      generator: { output: 30, source: 'constant', throttled: false },
+      battery: { capacity: 0 },
+    },
     solarFarm: {
       id: 'solarFarm',
       cost: 50,
       sites: ['surface'],
-      requires: ['photovoltaics'],
-      generator: { output: 60, source: 'solar' },
+      generator: { output: 60, source: 'solar', throttled: false },
     },
     fissionPlant: {
       id: 'fissionPlant',
       cost: 200,
       sites: ['surface'],
-      requires: ['fission'],
-      generator: { output: 120, source: 'constant' },
+      generator: { output: 120, source: 'constant', fuel: { reserve: 'uranium', rate: 1 }, throttled: false },
+    },
+    orbitalReactor: {
+      id: 'orbitalReactor',
+      cost: 200,
+      sites: ['shell'],
+      generator: { output: 60, source: 'constant', fuel: { reserve: 'uranium', rate: 1 }, throttled: false },
+    },
+    fusionPlant: {
+      id: 'fusionPlant',
+      cost: 400,
+      sites: ['surface'],
+      generator: { output: 300, source: 'constant', fuel: { reserve: 'fusionFuel', rate: 1 }, throttled: false },
     },
     orbitalSolar: {
       id: 'orbitalSolar',
       cost: 120,
       sites: ['shell'],
-      requires: ['spaceSolar'],
-      generator: { output: 50, source: 'solar' },
+      generator: { output: 50, source: 'solar', throttled: false },
     },
     battery: { id: 'battery', cost: 30, sites: ['surface', 'shell'], battery: { capacity: 600 } },
     laser: {
@@ -67,10 +97,42 @@ export const baseContent: Content = {
       sites: ['surface', 'shell'],
       weapon: { type: 'beam', range: 160, dps: 12, damage: 'thermal', draw: 15 },
     },
+    cannon: {
+      id: 'cannon',
+      cost: 50,
+      sites: ['surface', 'shell'],
+      weapon: {
+        type: 'launcher',
+        range: 150,
+        hit: 16,
+        damage: 'kinetic',
+        draw: 5,
+        energyPerShot: 10,
+        ammo: 0,
+        speed: 90,
+        knockback: 4,
+      },
+    },
+    rocketBattery: {
+      id: 'rocketBattery',
+      cost: 90,
+      sites: ['surface'],
+      weapon: {
+        type: 'launcher',
+        range: 320,
+        hit: 120,
+        damage: 'explosive',
+        draw: 5,
+        energyPerShot: 25,
+        ammo: 5,
+        speed: 70,
+        knockback: 0,
+      },
+    },
     railgun: {
       id: 'railgun',
       cost: 80,
-      sites: ['surface', 'shell'],
+      sites: ['surface'],
       weapon: {
         type: 'launcher',
         range: 260,
@@ -78,6 +140,7 @@ export const baseContent: Content = {
         damage: 'kinetic',
         draw: 12,
         energyPerShot: 60,
+        ammo: 0,
         speed: 120,
         knockback: 15,
       },
@@ -86,17 +149,11 @@ export const baseContent: Content = {
       id: 'relativityField',
       cost: 150,
       sites: ['shell'],
-      requires: ['relativity'],
       field: { radius: 90, slow: 0.6, draw: 30 },
     },
     lab: { id: 'lab', cost: 70, sites: ['surface'], lab: { science: 1, draw: 10 } },
   },
-  techs: {
-    photovoltaics: { id: 'photovoltaics', cost: 20 },
-    fission: { id: 'fission', cost: 80, requires: ['photovoltaics'] },
-    spaceSolar: { id: 'spaceSolar', cost: 60, requires: ['photovoltaics'] },
-    relativity: { id: 'relativity', cost: 100 },
-  },
+  techs: coreTechs,
 };
 
 export const baseWorld: WorldDef = {
@@ -120,9 +177,24 @@ export const baseWorld: WorldDef = {
   highOrbitYield: 0.5,
 };
 
+/** A ground level: two water slots, orbit closed, and a hand of three cards from the early techs. */
 export const firstLevel: LevelDef = {
-  world: baseWorld,
-  start: { minerals: 220, population: 100, techs: [] },
+  world: {
+    ...baseWorld,
+    surfaceFeatures: { water: [2, 6] },
+    shells: baseWorld.shells.map((shell) => ({ ...shell, open: 0 })),
+  },
+  start: {
+    minerals: 220,
+    population: 100,
+    techs: [],
+    structures: ['coalPlant', 'laser', 'cannon', 'lab', 'battery'],
+    reserves: { coal: 6000, oil: 1500 },
+  },
+  research: {
+    pool: ['coal2', 'oil1', 'water1', 'solar1', 'rocketry', 'railgun', 'water2', 'solar2', 'interceptors'],
+    choices: 3,
+  },
   waveDelay: 20,
   earlyCallBonus: 1,
   refund: 0.5,
