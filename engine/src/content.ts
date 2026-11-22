@@ -175,12 +175,15 @@ export const baseWorld: WorldDef = {
   minFragmentMass: 1,
   vaporYield: 0.5,
   highOrbitYield: 0.5,
+  orbits: { periapsis: [160, 230], apoapsis: [520, 660] },
 };
 
 /** A ground level: two water slots, orbit closed, and a hand of three cards from the early techs. */
 export const firstLevel: LevelDef = {
   world: {
     ...baseWorld,
+    // Bodies swing out of view and back a few times before they fall, so they decay slower than on a spiral.
+    inflow: 0.85,
     surfaceFeatures: { water: [2, 6] },
     shells: baseWorld.shells.map((shell) => ({ ...shell, open: 0 })),
   },

@@ -39,6 +39,12 @@ export interface WorldDef {
   vaporYield: number;
   /** Share of minerals kept for a kill at spawn radius; a kill at the surface keeps all. */
   highOrbitYield: number;
+  /**
+   * Orbits new bodies arrive on, as ranges of their closest and furthest radius. Bodies enter at the
+   * spawn radius heading in, swing past the planet, leave out to the far point and come back, until
+   * the air at the close point brakes them down. Without it bodies start on a circle at the spawn radius.
+   */
+  orbits?: { periapsis: [number, number]; apoapsis: [number, number] };
 }
 
 export interface FragmentDef {
@@ -231,6 +237,9 @@ export interface Asteroid {
   r: number;
   theta: number;
   direction: 1 | -1;
+  /** Radial and tangential velocity, units/s. Absent means a circular orbit in `direction`. */
+  vr?: number;
+  vt?: number;
   /** Damage already in flight towards this body, so launchers do not overkill. */
   pending: number;
   lastHit: DamageType | null;
