@@ -1,0 +1,27 @@
+name: Engine
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'engine/**'
+      - '.github/workflows/engine.yaml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: engine/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # Fails below the coverage thresholds in vitest.config.ts.
+      - run: npm test
