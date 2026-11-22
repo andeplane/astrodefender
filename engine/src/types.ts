@@ -219,6 +219,8 @@ export interface Structure {
   enabled: boolean;
   /** Energy stored towards the next launcher shot. */
   charge: number;
+  /** The asteroid a beam fired at this tick, if any. Rendering only; it never feeds back into the simulation. */
+  target?: number;
 }
 
 export interface Asteroid {

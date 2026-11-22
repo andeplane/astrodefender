@@ -441,6 +441,7 @@ export class Game {
     for (const structure of state.structures) {
       const def = structures[structure.def];
       capacity += def.battery?.capacity ?? 0;
+      delete structure.target;
       if (!structure.enabled) continue;
       if (def.generator) {
         const { fuel, throttled } = def.generator;
@@ -460,6 +461,7 @@ export class Game {
       if (def.weapon?.type === 'beam') {
         const target = this.pickTarget(this.sitePosition(structure.site), def.weapon.range, false);
         if (target) {
+          structure.target = target.id;
           demand += def.weapon.draw;
           beams.push({ structure, target, dps: def.weapon.dps, damage: def.weapon.damage });
         }
