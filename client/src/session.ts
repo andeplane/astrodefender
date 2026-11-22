@@ -1,4 +1,4 @@
-import { Game, type Command, type CommandResult, type Content, type GameEvent, type LevelDef } from '@engine';
+import { Game, type Command, type CommandResult, type Content, type GameEvent, type GameState, type LevelDef } from '@engine';
 import type { CreateSession, Session, Speed } from './contract';
 
 /** Real time worth of ticks one `advance` may run, so a tab coming back from the background does not stall. */
@@ -65,6 +65,12 @@ class GameSession implements Session {
     // Derived from the previous seed so the module stays deterministic; main picks the first one.
     this.currentSeed = seed ?? (this.currentSeed + 1) % 2 ** 31;
     this.current = new Game(this.content, this.level, this.currentSeed);
+    this.pending = 0;
+  }
+
+  load(state: GameState, seed: number): void {
+    this.current = Game.restore(this.content, this.level, state);
+    this.currentSeed = seed;
     this.pending = 0;
   }
 }

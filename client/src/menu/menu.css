@@ -1,0 +1,234 @@
+/*
+ * Title screen and the corner Menu button. Colours arrive as --menu-* custom properties set from
+ * theme.ts, the same palette the canvas and the HUD use. Sits above #hud; the planet keeps
+ * spinning behind the dimmed backdrop.
+ */
+#menu-layer {
+  --menu-safe-top: env(safe-area-inset-top, 0px);
+  --menu-safe-left: env(safe-area-inset-left, 0px);
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+#menu-layer [hidden] {
+  display: none !important;
+}
+
+.menu-corner {
+  position: absolute;
+  top: calc(var(--menu-safe-top) + 72px);
+  left: calc(var(--menu-safe-left) + 8px);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(12, 16, 26, 0.88);
+  color: #e8edf5;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.menu-corner:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+.menu-corner:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.menu {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  pointer-events: auto;
+  color: var(--menu-text);
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(5, 7, 13, 0.35) 0%, rgba(5, 7, 13, 0.82) 62%, rgba(5, 7, 13, 0.94) 100%);
+  animation: menu-fade 240ms ease-out;
+}
+.menu.is-paused {
+  background: rgba(5, 7, 13, 0.7);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+@keyframes menu-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.menu-screen {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  padding: calc(var(--menu-safe-top) + 24px) 16px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.menu-title {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0.92;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.menu-title__top,
+.menu-title__bottom {
+  display: block;
+  background: linear-gradient(180deg, #ffffff 0%, var(--menu-sky) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--menu-sky) 55%, transparent));
+}
+.menu-title__top {
+  font-size: clamp(40px, 13vw, 72px);
+  letter-spacing: 0.28em;
+  margin-right: -0.28em;
+}
+.menu-title__bottom {
+  font-size: clamp(30px, 9.6vw, 54px);
+  letter-spacing: 0.16em;
+  margin-right: -0.16em;
+  margin-top: 6px;
+}
+.menu-tagline {
+  margin: 18px 0 0;
+  color: var(--menu-muted);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.menu-buttons {
+  width: 100%;
+  max-width: 320px;
+  margin-top: clamp(32px, 8vh, 64px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.menu-btn {
+  min-height: 56px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(12, 16, 26, 0.72);
+  color: var(--menu-text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 120ms,
+    background 120ms,
+    transform 120ms;
+}
+.menu-btn:hover:not(:disabled),
+.menu-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--menu-sky) 70%, transparent);
+  background: color-mix(in srgb, var(--menu-sky) 14%, rgba(12, 16, 26, 0.8));
+}
+.menu-btn:focus-visible {
+  outline: 2px solid var(--menu-selection);
+  outline-offset: 3px;
+}
+.menu-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.menu-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.menu-btn--primary {
+  border-color: color-mix(in srgb, var(--menu-good) 60%, transparent);
+  background: color-mix(in srgb, var(--menu-good) 20%, rgba(12, 16, 26, 0.8));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--menu-good) 18%, transparent);
+}
+.menu-btn--primary:hover:not(:disabled),
+.menu-btn--primary:focus-visible {
+  border-color: var(--menu-good);
+  background: color-mix(in srgb, var(--menu-good) 30%, rgba(12, 16, 26, 0.8));
+}
+.menu-btn--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--menu-muted);
+}
+
+.menu-help {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 7, 13, 0.6);
+}
+.menu-help__card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  padding: 22px 20px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: var(--menu-panel);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: left;
+}
+.menu-help__title {
+  margin: 0 0 14px;
+  font-size: 20px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.menu-help__section {
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.menu-help__section h3 {
+  margin: 0 0 4px;
+  color: var(--menu-sky);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.menu-help__section p {
+  margin: 0;
+  color: var(--menu-muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.menu-help__close {
+  width: 100%;
+  margin-top: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu,
+  .menu-btn {
+    animation: none;
+    transition: none;
+  }
+}
