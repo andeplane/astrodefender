@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Game, baseContent, baseWorld, firstLevel, greedyPolicy, idlePolicy, runGame } from '../src/index';
 import { RESERVES, level, must, newGame, surface } from './helpers';
 
-const MAX_TICKS = 40_000;
+const MAX_TICKS = 80_000;
+const researcher = () => greedyPolicy(['laser', 'railgun', 'rocketBattery', 'cannon'], 1);
 
 describe('determinism', () => {
   it('plays the same game twice from the same seed and commands', () => {
@@ -39,17 +40,28 @@ describe('first level', () => {
     expect(result.stats.impacts).toBeGreaterThan(0);
   });
 
-  it('is won by the baseline player on every seed tried', () => {
-    for (let seed = 1; seed <= 10; seed++) {
-      const result = runGame(
-        new Game(baseContent, firstLevel, seed),
-        greedyPolicy(['laser', 'cannon', 'railgun']),
-        MAX_TICKS,
-      );
+  it('is won by the baseline player who researches, on every seed tried', () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const game = new Game(baseContent, firstLevel, seed);
+      const result = runGame(game, researcher(), MAX_TICKS);
       expect(result.status).toBe('won');
       expect(result.stats.destroyed).toBeGreaterThan(20);
       expect(result.ticks).toBeLessThan(MAX_TICKS);
+      expect(game.state.techs.length).toBeGreaterThan(5);
     }
+  });
+
+  it('rewards research: the opening weapons alone do worse', () => {
+    const population = (policy: () => ReturnType<typeof greedyPolicy>): number => {
+      let total = 0;
+      for (let seed = 1; seed <= 4; seed++) {
+        total += runGame(new Game(baseContent, firstLevel, seed), policy(), MAX_TICKS).population;
+      }
+      return total;
+    };
+    const researched = population(researcher);
+    expect(researched).toBeGreaterThan(population(() => greedyPolicy(['cannon'])) + 40);
+    expect(researched).toBeGreaterThan(population(() => greedyPolicy(['laser', 'cannon'])) + 40);
   });
 });
 

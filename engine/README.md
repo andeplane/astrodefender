@@ -6,7 +6,7 @@ drives through commands and reads back through events and plain JSON state.
 ```sh
 npm install
 npm test          # tests, fails under 95% coverage
-npm run sim       # baseline bots play the first level over 50 seeds
+npm run sim       # baseline bots play the first level over 50 seeds (about a minute)
 ```
 
 ## Model

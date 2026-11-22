@@ -229,5 +229,30 @@ export const firstLevel: LevelDef = {
         { at: 12, kind: 'rock', mass: 10, count: 6, interval: 3 },
       ],
     },
+    // From here the opening weapons are not enough for every slot: the level asks for research.
+    {
+      reward: 220,
+      spawns: [
+        { at: 0, kind: 'iron', mass: 14, count: 5, interval: 5 },
+        { at: 10, kind: 'ice', mass: 17, count: 4, interval: 4, direction: -1 },
+      ],
+    },
+    {
+      reward: 260,
+      spawns: [
+        { at: 0, kind: 'rock', mass: 42, count: 2, interval: 12 },
+        { at: 6, kind: 'iron', mass: 17, count: 5, interval: 5, direction: -1 },
+        { at: 20, kind: 'rock', mass: 8, count: 8, interval: 2 },
+      ],
+    },
+    {
+      reward: 400,
+      spawns: [
+        { at: 0, kind: 'iron', mass: 63 },
+        { at: 4, kind: 'rock', mass: 21, count: 5, interval: 5, direction: -1 },
+        { at: 12, kind: 'ice', mass: 21, count: 5, interval: 4 },
+        { at: 24, kind: 'iron', mass: 14, count: 6, interval: 3 },
+      ],
+    },
   ],
 };

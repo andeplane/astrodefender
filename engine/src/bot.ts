@@ -47,7 +47,7 @@ function spreadSite(sites: Site[], built: number): Site | undefined {
 
 /**
  * A simple baseline player: research the first affordable tech on offer, keep firm generation ahead of
- * peak demand, build `labs` labs after its first weapon, and otherwise cycle through `weapons`. It is a yardstick for balance, not a
+ * peak demand, build up to `labs` labs between weapons, and otherwise cycle through `weapons`. It is a yardstick for balance, not a
  * strong player: a level it cannot beat is too hard for a first-time human.
  */
 export function greedyPolicy(weapons: string[], labs = 0): Policy {
@@ -72,8 +72,9 @@ export function greedyPolicy(weapons: string[], labs = 0): Policy {
     if (usable.length === 0) return [];
     const labsBuilt = state.structures.filter((s) => defs[s.def].lab).length;
     const lab = Object.values(defs).find((def) => def.lab && state.unlocked.includes(def.id));
-    // The first weapon comes before the first lab, then labs until there are enough.
-    const next = lab && weaponsBuilt > 0 && labsBuilt < labs ? lab : defs[usable[weaponsBuilt % usable.length]];
+    // Defence first: one weapon before the first lab, and two more before each lab after that.
+    const next =
+      lab && weaponsBuilt > 2 * labsBuilt && labsBuilt < labs ? lab : defs[usable[weaponsBuilt % usable.length]];
 
     let wanted: StructureDef | undefined = next;
     if (supply < demand + peakDraw(next)) {
