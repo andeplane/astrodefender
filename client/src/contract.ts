@@ -46,10 +46,20 @@ export interface Camera {
   readonly height: number;
   /** Pixels per world unit. */
   readonly scale: number;
-  /** `insets` are pixels covered by the HUD at the top and bottom, kept clear of the play field. */
-  resize(width: number, height: number, insets?: { top: number; bottom: number }): void;
+  /**
+   * `top` and `bottom` are pixels the HUD always covers; the play field is scaled to fit between them.
+   * `sheet` is what an open panel covers from the bottom: the planet moves up clear of it, at the same scale.
+   */
+  resize(width: number, height: number, insets?: Insets): void;
   toScreen(world: Vec): Vec;
   toWorld(screen: Vec): Vec;
+}
+
+export interface Insets {
+  top: number;
+  bottom: number;
+  /** Pixels covered from the bottom edge while a panel is open; never less than `bottom`. */
+  sheet?: number;
 }
 
 export interface Frame {
@@ -72,7 +82,7 @@ export interface Hud {
   /** Called once per frame; must be cheap when nothing changed. */
   update(game: Game, events: GameEvent[]): void;
   /** Pixels the HUD covers at the top and bottom of the screen. */
-  insets(): { top: number; bottom: number };
+  insets(): Insets;
 }
 
 export type CreateSession = (options: { content: Content; level: LevelDef; seed: number }) => Session;

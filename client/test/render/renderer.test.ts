@@ -221,6 +221,7 @@ describe('draw', () => {
       pending: 0,
       lastHit: null,
     });
+    game.state.structures[0].target = 7;
     renderer(ctx).draw(frame(game, { now: 1234 }));
     const beam = ctx.named('stroke').filter((call) => call.style === damageColors.thermal);
     expect(beam).toHaveLength(2);

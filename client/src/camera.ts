@@ -30,7 +30,9 @@ export const createCamera: CreateCamera = (world) => {
       const available = Math.max(0, h - insets.top - insets.bottom);
       // Never 0, so toWorld stays finite on a page that has not been laid out yet.
       scale = Math.max(Math.min(w, available) / (2 * radius), 1e-6);
-      centre = { x: w / 2, y: insets.top + available / 2 };
+      // An open panel does not rescale the field; the planet slides up into what stays visible.
+      const visible = Math.max(0, h - insets.top - Math.max(insets.bottom, insets.sheet ?? 0));
+      centre = { x: w / 2, y: insets.top + visible / 2 };
     },
     toScreen(p) {
       return { x: centre.x + p.x * scale, y: centre.y - p.y * scale };

@@ -59,7 +59,7 @@ function frame(now: number): void {
   const events = session.advance(elapsed);
   // The HUD may grow or shrink (a panel opening); keep the play field clear of it.
   const next = hud.insets();
-  if (next.top !== insets.top || next.bottom !== insets.bottom) {
+  if (next.top !== insets.top || next.bottom !== insets.bottom || next.sheet !== insets.sheet) {
     insets = next;
     camera.resize(camera.width, camera.height, insets);
   }

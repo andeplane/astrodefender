@@ -10,23 +10,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x]
+    defaults:
+      run:
+        working-directory: client
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
       - name: Install Packages
-        run: npm install
+        run: npm ci
       - name: Build app
-        run: npm run predeploy
+        run: npm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: client/dist
   deploy:
     needs: build
     if: github.ref == 'refs/heads/main'

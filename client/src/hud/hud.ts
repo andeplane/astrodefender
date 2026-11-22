@@ -89,9 +89,12 @@ export function createHudWith(root: HTMLElement, session: Session, ui: UiStore, 
     insets() {
       const barBox = measure(bar.element);
       const controlsBox = measure(controls);
+      const bottomBox = measure(bottom);
+      const covered = controlsBox.height > 0 ? Math.max(0, viewportHeight() - controlsBox.top) : 0;
       return {
         top: barBox.height > 0 ? Math.max(0, barBox.bottom) : 0,
-        bottom: controlsBox.height > 0 ? Math.max(0, viewportHeight() - controlsBox.top) : 0,
+        bottom: covered,
+        sheet: bottomBox.height > 0 ? Math.max(covered, viewportHeight() - bottomBox.top) : covered,
       };
     },
   };

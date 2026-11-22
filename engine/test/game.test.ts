@@ -415,3 +415,17 @@ describe('waves', () => {
     expect(game.state.minerals).toBeCloseTo(10_000 + 20 + 50 + 70);
   });
 });
+
+describe('beam targets', () => {
+  it('records what a laser fired at, and clears it once nothing is in range', () => {
+    const game = newGame();
+    must(game, { type: 'build', structure: 'laser', site: surface(0) });
+    const rock = place(game, { kind: 'rock', mass: 20, r: 180, theta: 0 });
+    game.tick();
+    expect(game.state.structures[0].target).toBe(rock.id);
+    game.state.asteroids = [];
+    game.tick();
+    expect(game.state.structures[0].target).toBeUndefined();
+    expect('target' in game.state.structures[0]).toBe(false);
+  });
+});

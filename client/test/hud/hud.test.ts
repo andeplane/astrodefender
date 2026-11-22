@@ -433,23 +433,27 @@ describe('end screen', () => {
 describe('insets', () => {
   it('is zero where there is no layout', () => {
     const { hud } = setup();
-    expect(hud.insets()).toEqual({ top: 0, bottom: 0 });
+    expect(hud.insets()).toEqual({ top: 0, bottom: 0, sheet: 0 });
   });
 
   it('measures the bar and the control row', () => {
     const { hud } = setup(firstLevel, {
       measure: (node) =>
-        node.classList.contains('hud-bar') ? { top: 6, bottom: 70, height: 64 } : { top: 780, bottom: 836, height: 56 },
+        node.classList.contains('hud-bar')
+          ? { top: 6, bottom: 70, height: 64 }
+          : node.classList.contains('hud-bottom')
+            ? { top: 400, bottom: 844, height: 444 }
+            : { top: 780, bottom: 836, height: 56 },
       viewportHeight: () => 844,
     });
-    expect(hud.insets()).toEqual({ top: 70, bottom: 64 });
+    expect(hud.insets()).toEqual({ top: 70, bottom: 64, sheet: 444 });
   });
 
   it('measures the bottom against the window when no viewport height is given', () => {
     const { hud } = setup(firstLevel, {
       measure: () => ({ top: window.innerHeight - 50, bottom: window.innerHeight, height: 50 }),
     });
-    expect(hud.insets()).toEqual({ top: window.innerHeight, bottom: 50 });
+    expect(hud.insets()).toEqual({ top: window.innerHeight, bottom: 50, sheet: 50 });
   });
 
   it('builds through the contract factory with real timing and layout', () => {
@@ -458,6 +462,6 @@ describe('insets', () => {
     const hud = createHud(root, session, new FakeUi());
     hud.update(session.game, [{ type: 'waveCleared', wave: 0, reward: 60 }]);
     expect(root.querySelectorAll('.hud-toast')).toHaveLength(1);
-    expect(hud.insets()).toEqual({ top: 0, bottom: 0 });
+    expect(hud.insets()).toEqual({ top: 0, bottom: 0, sheet: 0 });
   });
 });

@@ -25,30 +25,35 @@ function build(game: Game, structure: string, slot: number): void {
 }
 
 describe('beams', () => {
-  it('aims each enabled laser at the lowest body in range that the planet does not hide', () => {
+  it('draws from each structure to the body the engine says it fired at', () => {
     const game = newGame();
-    build(game, 'laser', 0); // at angle 0, on +x
+    build(game, 'laser', 0);
     rock(game, 200, 0.1);
-    const lowest = rock(game, 150, -0.1);
-    rock(game, 130, 1.2); // lower and in range, but the planet is in the way
-    rock(game, 120, 0.05, 0); // already dead
+    const aimed = rock(game, 150, -0.1);
+    expect(beams(game, 0)).toEqual([]);
+    game.state.structures[0].target = aimed.id;
     const found = beams(game, 0);
     expect(found).toHaveLength(1);
-    const at = fromPolar(lowest.r, lowest.theta);
+    const at = fromPolar(aimed.r, aimed.theta);
     expect(found[0].to.x).toBeCloseTo(at.x);
     expect(found[0].to.y).toBeCloseTo(at.y);
     expect(found[0].from).toEqual(game.sitePosition({ kind: 'surface', slot: 0 }, 0));
   });
 
-  it('fires at nothing out of range, and not at all when switched off or not a beam', () => {
+  it('skips a target that is gone', () => {
     const game = newGame();
     build(game, 'laser', 0);
-    build(game, 'cannon', 1);
-    rock(game, 400, 0);
+    game.state.structures[0].target = 999;
     expect(beams(game, 0)).toEqual([]);
-    rock(game, 180, 0);
-    game.state.structures[0].enabled = false;
-    expect(beams(game, 0)).toEqual([]);
+  });
+
+  it('follows a real tick', () => {
+    const game = newGame();
+    build(game, 'laser', 0);
+    const near = rock(game, 180, 0);
+    game.tick();
+    expect(beams(game, 0)).toHaveLength(1);
+    expect(game.state.structures[0].target).toBe(near.id);
   });
 });
 

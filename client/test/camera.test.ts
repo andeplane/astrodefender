@@ -14,6 +14,15 @@ describe('camera', () => {
     expect(camera.toScreen({ x: 0, y: 0 })).toEqual({ x: 200, y: 60 + 600 / 2 });
   });
 
+  it('slides the planet up clear of an open panel without rescaling', () => {
+    const camera = createCamera(baseWorld);
+    camera.resize(400, 800, { top: 60, bottom: 140, sheet: 440 });
+    expect(camera.scale).toBeCloseTo(400 / (2 * radius));
+    expect(camera.toScreen({ x: 0, y: 0 })).toEqual({ x: 200, y: 60 + 300 / 2 });
+    camera.resize(400, 800, { top: 60, bottom: 140, sheet: 100 });
+    expect(camera.toScreen({ x: 0, y: 0 })).toEqual({ x: 200, y: 60 + 600 / 2 });
+  });
+
   it('fits into the height left between the insets on a landscape screen', () => {
     const camera = createCamera(baseWorld);
     camera.resize(1200, 700, { top: 50, bottom: 50 });
