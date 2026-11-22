@@ -1,0 +1,541 @@
+/*
+ * The HUD: plain DOM over the canvas. Colours arrive as --hud-* custom properties set from
+ * theme.ts on .hud, so the panels and the scene share one palette. #hud ignores pointers; only
+ * panels and buttons take them, so taps elsewhere reach the canvas.
+ */
+.hud {
+  --gap: 8px;
+  --radius: 14px;
+  --edge: rgba(255, 255, 255, 0.1);
+  --raise: rgba(255, 255, 255, 0.05);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  position: absolute;
+  inset: 0;
+  color: var(--hud-text);
+  font-size: 13px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.hud [hidden] {
+  display: none !important;
+}
+.hud h2,
+.hud p,
+.hud ul,
+.hud dl,
+.hud dd {
+  margin: 0;
+  padding: 0;
+}
+.hud ul {
+  list-style: none;
+}
+
+/* Buttons: at least 44 px on each side, never hover-only. */
+.hud-btn {
+  pointer-events: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--raise);
+  color: var(--hud-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.hud-btn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+.hud-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.hud-btn:focus-visible,
+.hud-item:focus-visible {
+  outline: 2px solid var(--hud-selection);
+  outline-offset: 2px;
+}
+.hud-btn--primary {
+  border-color: color-mix(in srgb, var(--hud-good) 55%, transparent);
+  background: color-mix(in srgb, var(--hud-good) 22%, transparent);
+}
+.hud-btn--danger {
+  border-color: color-mix(in srgb, var(--hud-bad) 50%, transparent);
+  background: color-mix(in srgb, var(--hud-bad) 16%, transparent);
+}
+.hud-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--hud-muted);
+}
+
+/* Top bar */
+.hud-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + var(--gap)) 0 calc(var(--safe-left) + var(--gap));
+}
+.hud-bar {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 640px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--hud-panel);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.hud-stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 3px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.hud-stat__label {
+  grid-column: 1 / -1;
+  color: var(--hud-muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hud-stat__value {
+  font-size: 15px;
+  font-weight: 700;
+}
+.hud-stat__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--hud-muted);
+  font-size: 10px;
+}
+.hud-stat.is-bad .hud-stat__value,
+.hud-stat.is-bad .hud-stat__label {
+  color: var(--hud-bad);
+}
+.hud-stat.is-warn .hud-stat__value,
+.hud-stat.is-warn .hud-stat__label {
+  color: var(--hud-warn);
+}
+.hud-stat.is-active .hud-stat__sub {
+  color: var(--hud-warn);
+}
+.hud-reserves {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  padding-top: 2px;
+  border-top: 1px solid var(--edge);
+  font-size: 11px;
+}
+.hud-reserve {
+  display: inline-flex;
+  gap: 4px;
+}
+.hud-reserve__name {
+  color: var(--hud-muted);
+}
+.hud-reserve__value {
+  font-weight: 600;
+}
+
+/* Toasts hang under the bar and take no taps. */
+.hud-toasts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  max-width: min(420px, 100%);
+}
+.hud-toast {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--edge);
+  background: var(--hud-panel);
+  font-size: 13px;
+  text-align: center;
+  animation: hud-toast-in 160ms ease-out;
+}
+.hud-toast--good {
+  border-color: color-mix(in srgb, var(--hud-good) 55%, transparent);
+}
+.hud-toast--bad {
+  border-color: color-mix(in srgb, var(--hud-bad) 60%, transparent);
+  color: #ffd0d0;
+}
+@keyframes hud-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* Bottom: the sheets stack above the control row, which is always there. */
+.hud-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap);
+  padding: 0 calc(var(--safe-right) + var(--gap)) calc(var(--safe-bottom) + var(--gap))
+    calc(var(--safe-left) + var(--gap));
+}
+.hud-bottom > * {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 520px;
+}
+.hud-controls {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--hud-panel);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.hud-speed {
+  display: flex;
+  gap: 2px;
+}
+.hud-speed__btn {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  font-size: 13px;
+}
+.hud-speed__btn.is-active {
+  border-color: var(--edge);
+  background: rgba(255, 255, 255, 0.16);
+}
+.hud-research-btn {
+  position: relative;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.hud-research-btn.is-active {
+  background: rgba(255, 255, 255, 0.16);
+}
+.hud-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--hud-warn);
+  box-shadow: 0 0 0 2px var(--hud-space);
+}
+.hud-call {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-left: auto;
+  padding: 0 10px;
+  font-size: 13px;
+  line-height: 1.1;
+}
+.hud-call__bonus {
+  color: var(--hud-good);
+  font-size: 11px;
+}
+.hud-call__bonus:empty {
+  display: none;
+}
+
+/* Sheets */
+.hud-sheet {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: min(46vh, 440px);
+  border-radius: 18px;
+  background: var(--hud-panel);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+.hud-sheet--research {
+  max-width: 760px;
+  max-height: min(60vh, 560px);
+}
+.hud-sheet__head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 2px 4px 2px 14px;
+}
+.hud-sheet__title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+}
+.hud-sheet__body,
+.hud-cards {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The page blocks touch gestures for the canvas; lists still scroll. */
+  touch-action: pan-y;
+  padding: 0 8px 4px;
+}
+.hud-sheet__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 8px;
+  border-top: 1px solid var(--edge);
+}
+.hud-sheet__foot:empty {
+  display: none;
+}
+.hud-sheet__hint {
+  flex: 1;
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+.hud-build {
+  flex: none;
+}
+.hud-empty {
+  padding: 12px 6px;
+  color: var(--hud-muted);
+}
+
+/* Build menu */
+.hud-menu {
+  display: grid;
+  gap: 6px;
+}
+.hud-item {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--raise);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+.hud-item.is-chosen {
+  border-color: var(--hud-selection);
+  background: rgba(255, 255, 255, 0.11);
+}
+.hud-item.is-unaffordable .hud-item__name,
+.hud-item.is-unaffordable .hud-swatch {
+  opacity: 0.5;
+}
+.hud-item.is-unaffordable .hud-item__cost {
+  color: var(--hud-bad);
+}
+.hud-swatch {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--swatch);
+  color: #05070d;
+  font-size: 12px;
+  font-weight: 800;
+}
+.hud-item__main,
+.hud-detail__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hud-item__name,
+.hud-detail__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.hud-item__stats,
+.hud-detail__stats {
+  color: var(--hud-muted);
+  font-size: 11.5px;
+}
+.hud-item__reason {
+  color: var(--hud-bad);
+  font-size: 11px;
+}
+.hud-item__reason:empty {
+  display: none;
+}
+.hud-item__cost {
+  flex: none;
+  font-weight: 700;
+}
+.hud-item__cost::before {
+  content: '◆ ';
+  color: var(--hud-muted);
+  font-size: 10px;
+}
+
+/* Built structure */
+.hud-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 6px 8px;
+}
+.hud-detail__desc {
+  font-size: 12.5px;
+}
+.hud-detail__off {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hud-warn) 20%, transparent);
+  color: var(--hud-warn);
+  font-size: 11px;
+  font-weight: 700;
+}
+.hud-toggle,
+.hud-sell {
+  flex: 1;
+}
+
+/* Research cards */
+.hud-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.hud-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--raise);
+}
+.hud-card__top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.hud-card__name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+}
+.hud-card__line {
+  color: var(--hud-muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hud-card__text {
+  flex: 1;
+  font-size: 12.5px;
+}
+.hud-card__note {
+  color: var(--hud-warn);
+  font-size: 11.5px;
+}
+.hud-card.is-unaffordable .hud-card__name {
+  color: var(--hud-muted);
+}
+
+/* End screen */
+.hud-end {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + 16px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 16px)
+    calc(var(--safe-left) + 16px);
+  background: rgba(5, 7, 13, 0.62);
+}
+.hud-end__card {
+  box-sizing: border-box;
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 20px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  background: var(--hud-panel);
+  text-align: center;
+}
+.hud-end__title {
+  color: var(--hud-bad);
+  font-size: 26px;
+  font-weight: 800;
+}
+.hud-end__card.is-won .hud-end__title {
+  color: var(--hud-good);
+}
+.hud-end__sub {
+  color: var(--hud-muted);
+}
+.hud-end__stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  text-align: left;
+}
+.hud-end__stats dt {
+  color: var(--hud-muted);
+}
+.hud-end__stats dd {
+  font-weight: 700;
+  text-align: right;
+}
+.hud-end__again {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+/* Narrow phones: keep the control row on one line. */
+@media (max-width: 370px) {
+  .hud-speed__btn {
+    min-width: 40px;
+  }
+  .hud-bar {
+    padding: 6px 8px;
+  }
+}
